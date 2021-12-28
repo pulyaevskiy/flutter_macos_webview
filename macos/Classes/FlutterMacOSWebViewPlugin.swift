@@ -5,10 +5,10 @@ import WebKit
 public class FlutterMacOSWebViewPlugin: NSObject, FlutterPlugin {
     private let channel: FlutterMethodChannel
     private let registrar: FlutterPluginRegistrar
-    
+
     private lazy var parentViewController: NSViewController? = {
         return NSApp.windows.first { (w) -> Bool in
-            return w.contentViewController?.view == registrar.view
+            return w.contentViewController?.view == registrar.view?.superview
         }?.contentViewController
     }()
     private var webViewController: WebViewController?
@@ -18,7 +18,7 @@ public class FlutterMacOSWebViewPlugin: NSObject, FlutterPlugin {
         self.registrar = registrar
         super.init()
     }
-    
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(
             name: "com.vanelizarov.flutter_macos_webview/method",
@@ -37,7 +37,7 @@ public class FlutterMacOSWebViewPlugin: NSObject, FlutterPlugin {
             result(FlutterMethodNotImplemented)
         }
     }
-    
+
     private func open(call: FlutterMethodCall, result: @escaping FlutterResult) {
         let args = call.arguments as! [String: Any]
         guard let url = URL(string: args["url"] as! String) else {
@@ -48,7 +48,7 @@ public class FlutterMacOSWebViewPlugin: NSObject, FlutterPlugin {
             ))
             return
         }
-        
+
         guard let parentCtrl = parentViewController else {
             result(FlutterError(
                 code: "NO_PARENT_WINDOW",
@@ -57,14 +57,14 @@ public class FlutterMacOSWebViewPlugin: NSObject, FlutterPlugin {
             ))
             return
         }
-        
+
         let presentationStyle = WebViewController.PresentationStyle(
             rawValue: args["presentationStyle"] as! Int
         )!
-                
+
         if webViewController == nil {
             let parentFrame = parentCtrl.view.frame
-            
+
             var width = parentFrame.size.width
             var height = parentFrame.size.height
 
@@ -76,7 +76,7 @@ public class FlutterMacOSWebViewPlugin: NSObject, FlutterPlugin {
                     height = CGFloat(ch)
                 }
             }
-            
+
 //            TODO
 //            if args["customOrigin"] as! Bool {
 //                if let cx = args["x"] as? Double {
@@ -86,7 +86,7 @@ public class FlutterMacOSWebViewPlugin: NSObject, FlutterPlugin {
 //                    y = CGFloat(cy)
 //                }
 //            }
-            
+
             webViewController = WebViewController(
                 channel: channel,
                 frame: CGRect(
@@ -108,32 +108,32 @@ public class FlutterMacOSWebViewPlugin: NSObject, FlutterPlugin {
             ))
             return
         }
-        
+
         webViewCtrl.javascriptEnabled = args["javascriptEnabled"] as! Bool
         webViewCtrl.userAgent = args["userAgent"] as? String
-        
+
         webViewCtrl.loadUrl(url: url)
-                
+
         if (!parentCtrl.presentedViewControllers!.contains(webViewCtrl)) {
             if (presentationStyle == .modal) {
                 parentCtrl.presentAsModalWindow(webViewCtrl)
             } else {
                 parentCtrl.presentAsSheet(webViewCtrl)
             }
-            
+
             NotificationCenter.default.addObserver(
                 self,
                 selector: #selector(close(_:)),
                 name: WebViewController.closeNotification,
                 object: nil
             )
-            
+
             channel.invokeMethod("onOpen", arguments: nil)
             // TODO: window
         }
         result(nil)
     }
-    
+
     @objc private func close(_ sender: Any?) {
         guard
             let webViewCtrl = webViewController,
@@ -146,16 +146,16 @@ public class FlutterMacOSWebViewPlugin: NSObject, FlutterPlugin {
             parentCtrl.dismiss(webViewCtrl)
         }
         webViewController = nil
-        
+
         NotificationCenter.default.removeObserver(
             self,
             name: WebViewController.closeNotification,
             object: nil
         )
-        
+
         channel.invokeMethod("onClose", arguments: nil)
     }
-    
+
     private func close(_ sender: Any?, result: @escaping FlutterResult) {
         close(sender)
         result(nil)

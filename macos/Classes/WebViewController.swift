@@ -14,22 +14,22 @@ class WebViewController: NSViewController {
         case modal = 0
         case sheet = 1
     }
-    
+
     static let closeNotification = Notification.Name("WebViewCloseNotification")
-    
+
     private let webview: WKWebView
-    
+
     private let frame: CGRect
     private let channel: FlutterMethodChannel
     private let presentationStyle: PresentationStyle
     private let modalTitle: String!
     private let sheetCloseButtonTitle: String
-    
+
     var javascriptEnabled: Bool {
         set { webview.configuration.preferences.javaScriptEnabled = newValue }
         get { webview.configuration.preferences.javaScriptEnabled }
     }
-    
+
     var userAgent: String? {
         set {
             if let userAgent = newValue {
@@ -40,7 +40,7 @@ class WebViewController: NSViewController {
         }
         get { webview.customUserAgent }
     }
-        
+
     required init(
         channel: FlutterMethodChannel,
         frame: NSRect,
@@ -53,38 +53,38 @@ class WebViewController: NSViewController {
         self.presentationStyle = presentationStyle
         self.modalTitle = modalTitle
         self.sheetCloseButtonTitle = sheetCloseButtonTitle
-        
+
         webview = WKWebView()
-        
+
         super.init(nibName: nil, bundle: nil)
-        
+
         webview.navigationDelegate = self
         webview.uiDelegate = self
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     func loadUrl(url: URL) {
         let req = URLRequest(url: url)
         webview.load(req)
     }
-    
+
     @objc private func closeSheet() {
         self.view.window?.close()
     }
-    
+
     private func setupViews() {
         webview.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(webview)
-        
+
         var constraints: [NSLayoutConstraint] = [
             webview.topAnchor.constraint(equalTo: view.topAnchor),
             webview.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webview.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ]
-        
+
         if (presentationStyle == .sheet) {
             let bottomBarHeight: CGFloat = 44.0
             constraints.append(
@@ -96,7 +96,7 @@ class WebViewController: NSViewController {
             bottomBar.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
             bottomBar.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(bottomBar)
-            
+
             constraints.append(contentsOf: [
                 bottomBar.topAnchor.constraint(equalTo: webview.bottomAnchor),
                 bottomBar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -104,12 +104,12 @@ class WebViewController: NSViewController {
                 bottomBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
                 bottomBar.heightAnchor.constraint(equalToConstant: bottomBarHeight),
             ])
-            
+
             let closeButton = NSButton()
             closeButton.isBordered = false
             closeButton.title = sheetCloseButtonTitle
             closeButton.font = NSFont.systemFont(ofSize: 14.0)
-            closeButton.contentTintColor = .systemBlue
+//             closeButton.contentTintColor = .systemBlue
             closeButton.bezelStyle = .rounded
             closeButton.setButtonType(.momentaryChange)
             closeButton.sizeToFit()
@@ -133,14 +133,14 @@ class WebViewController: NSViewController {
             c.isActive = true
         }
     }
-    
+
     override func loadView() {
         view = NSView(frame: frame)
         view.translatesAutoresizingMaskIntoConstraints = false
-        
+
         setupViews()
     }
-    
+
     override func viewDidAppear() {
         view.window?.delegate = self
     }
@@ -163,17 +163,17 @@ extension WebViewController: WKUIDelegate {
 }
 
 extension WebViewController: WKNavigationDelegate {
-    
+
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         guard let url = webView.url?.absoluteString else { return }
         channel.invokeMethod("onPageStarted", arguments: [ "url": url ])
     }
-    
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let url = webView.url?.absoluteString else { return }
         channel.invokeMethod("onPageFinished", arguments: [ "url": url ])
     }
-    
+
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         let error = NSError(
             domain: WKError.errorDomain,
@@ -182,15 +182,15 @@ extension WebViewController: WKNavigationDelegate {
         )
         onWebResourceError(error)
     }
-    
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         onWebResourceError(error as NSError)
     }
-    
+
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         onWebResourceError(error as NSError)
     }
-    
+
     static func errorCodeToString(code: Int) -> String? {
         switch code {
             case WKError.unknown.rawValue:
@@ -206,9 +206,9 @@ extension WebViewController: WKNavigationDelegate {
             default:
                 return nil;
         }
-        
+
     }
-    
+
     func onWebResourceError(_ error: NSError) {
         channel.invokeMethod("onWebResourceError", arguments: [
             "errorCode": error.code,
